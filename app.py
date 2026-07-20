@@ -1,32 +1,90 @@
-# app.py - 简历JD深度匹配分析器（强化版）
+# app.py - 简历JD深度匹配分析器（美化版）
 import streamlit as st
 from openai import OpenAI
 import pdfplumber
 from docx import Document
 import json
 
+# ========== 页面基本设置 ==========
 st.set_page_config(page_title="简历JD匹配分析", page_icon="📊", layout="wide")
-st.title("📊 简历 vs 岗位深度匹配分析器")
-st.markdown("上传你的简历，粘贴岗位描述，AI 为你提供详细匹配分析、优化建议和面试准备。")
 
-# ---- API Key 读取 ----
+# ========== 自定义 CSS 样式 ==========
+def local_css():
+    st.markdown("""
+    <style>
+    /* 整体背景渐变 */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    /* 卡片容器（用于 expander） */
+    .stExpander {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    /* 标题颜色 */
+    h1 { color: #2c3e50; font-weight: 700; }
+    h2, h3 { color: #34495e; }
+    /* 主按钮渐变 */
+    .stButton > button {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        padding: 10px 25px;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+    }
+    /* 进度条颜色 */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    /* 文件上传区域虚线边框 */
+    .stFileUploader > div {
+        border: 2px dashed #667eea;
+        border-radius: 15px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+local_css()
+
+# ========== 标题区（居中 + 描述） ==========
+st.markdown("""
+<div style="text-align: center; padding: 30px 0 10px 0;">
+    <h1>📊 简历 vs 岗位深度匹配分析器</h1>
+    <p style="font-size: 1.2rem; color: #555;">上传简历 + 粘贴 JD，AI 为你定制求职方案</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ========== API Key 读取（侧边栏美化） ==========
 api_key = None
 try:
     api_key = st.secrets["DEEPSEEK_API_KEY"]
 except Exception:
     pass
 
-if not api_key:
-    with st.sidebar:
-        st.warning("⚠️ 请输入 DeepSeek API Key")
+with st.sidebar:
+    st.markdown("## 🔐 设置 API Key")
+    st.markdown("---")
+    if not api_key:
+        st.warning("请输入 DeepSeek API Key 解锁功能")
         api_key = st.text_input("API Key", type="password", placeholder="sk-...")
-        st.caption("[获取 DeepSeek Key](https://platform.deepseek.com)")
+        st.caption("[🔗 获取 DeepSeek Key](https://platform.deepseek.com)")
+    else:
+        st.success("✅ API Key 已就绪")
 
 client = None
 if api_key:
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 
-# ---- 文件读取函数 ----
+# ========== 文件读取函数 ==========
 def read_pdf(file):
     text = ""
     with pdfplumber.open(file) as pdf:
@@ -50,7 +108,7 @@ def read_resume(uploaded_file):
     else:
         raise ValueError("不支持的文件格式，请上传 PDF、DOCX 或 TXT")
 
-# ---- 核心分析函数（强化 Prompt）----
+# ========== 核心分析函数（强化 Prompt） ==========
 def analyze(jd_text, resume_text):
     max_len = 8000
     jd_text = jd_text[:max_len]
@@ -124,15 +182,26 @@ def analyze(jd_text, resume_text):
     except Exception as e:
         return {"error": str(e)}
 
-# ---- 报告展示函数（适配新 JSON）----
+# ========== 报告展示函数（美化版） ==========
 def print_report(result):
-    # 评分和说明
+    # 动态匹配度颜色和图标
     score = result.get("综合匹配度", 0)
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.metric("综合匹配度", f"{score}%")
-    with col2:
-        st.info(result.get("评分说明", ""))
+    if score >= 80:
+        color = "#27ae60"
+        emoji = "🟢"
+    elif score >= 60:
+        color = "#f39c12"
+        emoji = "🟡"
+    else:
+        color = "#e74c3c"
+        emoji = "🔴"
+
+    st.markdown(f"""
+    <div style="text-align: center; margin: 20px 0;">
+        <span style="font-size: 3rem; font-weight: bold; color: {color};">{score}%</span> {emoji}
+        <p style="color: #666; margin-top: 10px;">{result.get('评分说明', '')}</p>
+    </div>
+    """, unsafe_allow_html=True)
     st.progress(score / 100)
 
     # 匹配分析
@@ -180,14 +249,14 @@ def print_report(result):
             st.markdown(f"**✍️ 修改示范：** {sug.get('修改示范', '')}")
             st.markdown(f"**📌 理由：** {sug.get('理由', '')}")
 
-    # 面试准备方向
+    # 面试准备
     st.subheader("🎯 面试准备方向")
     for i, q in enumerate(result.get("面试准备方向", []), 1):
         with st.expander(f"Q{i}: {q.get('可能的问题', '')}"):
             st.write(f"**类型：** {q.get('问题类型', '')}")
             st.write(f"**回答要点：** {q.get('回答要点', '')}")
 
-    # 技能提升路线图
+    # 提升路线图
     roadmap = result.get("技能提升路线图", {})
     if roadmap:
         st.subheader("🗺️ 技能提升路线图（3个月冲刺计划）")
@@ -199,22 +268,30 @@ def print_report(result):
                     st.markdown(f"- {content}")
                 st.write(f"**🔨 实践项目：** {plan.get('实践项目', '')}")
 
-# ---- 主界面 ----
+# ========== 主界面（卡片式布局） ==========
 col1, col2 = st.columns([1, 1])
+
 with col1:
-    st.subheader("1️⃣ 上传简历")
-    uploaded_file = st.file_uploader("选择文件（PDF/Word/TXT）", type=["pdf", "docx", "txt"])
-    if uploaded_file:
-        try:
-            resume_text = read_resume(uploaded_file)
-            st.success(f"✅ 简历读取成功，共 {len(resume_text)} 字符")
-        except Exception as e:
-            st.error(f"❌ 读取失败：{e}")
+    with st.container():
+        st.markdown("""<div style="background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">""", unsafe_allow_html=True)
+        st.subheader("📄 上传简历")
+        uploaded_file = st.file_uploader("选择文件（PDF/Word/TXT）", type=["pdf", "docx", "txt"])
+        if uploaded_file:
+            try:
+                resume_text = read_resume(uploaded_file)
+                st.success(f"✅ 简历读取成功，共 {len(resume_text)} 字符")
+            except Exception as e:
+                st.error(f"❌ 读取失败：{e}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.subheader("2️⃣ 粘贴职位描述")
-    jd_text = st.text_area("将完整的岗位JD粘贴到这里", height=300)
+    with st.container():
+        st.markdown("""<div style="background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">""", unsafe_allow_html=True)
+        st.subheader("📋 粘贴职位描述")
+        jd_text = st.text_area("将完整的岗位JD粘贴到这里", height=300)
+        st.markdown("</div>", unsafe_allow_html=True)
 
+# 分析按钮
 if st.button("🔍 开始深度分析", type="primary", use_container_width=True):
     if not client:
         st.error("请先在左侧边栏输入 DeepSeek API Key")
@@ -223,7 +300,7 @@ if st.button("🔍 开始深度分析", type="primary", use_container_width=True
     elif len(jd_text) < 50:
         st.warning("职位描述至少需要50个字符")
     else:
-        with st.spinner("AI 正在深度分析中，这可能需要 10-20 秒..."):
+        with st.spinner("🤖 AI 正在仔细比对简历与岗位要求，生成详细报告..."):
             result = analyze(jd_text, resume_text)
         if not isinstance(result, dict):
             st.error(f"未知错误：{result}")
@@ -233,5 +310,11 @@ if st.button("🔍 开始深度分析", type="primary", use_container_width=True
             st.success("分析完成！以下是详细报告 👇")
             print_report(result)
 
+# ========== 页脚美化 ==========
 st.markdown("---")
-st.caption("🔒 你的简历和JD仅用于本次分析，不会被存储。")
+st.markdown("""
+<div style="text-align: center; padding: 20px; color: #999;">
+    <small>🔒 你的简历和JD仅用于本次分析，不会被存储。<br>
+    Made with ❤️ using Streamlit & DeepSeek</small>
+</div>
+""", unsafe_allow_html=True)
