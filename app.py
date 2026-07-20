@@ -51,18 +51,40 @@ def read_resume(uploaded_file):
         raise ValueError("不支持的文件格式，请上传 PDF、DOCX 或 TXT")
 
 def analyze(jd_text, resume_text):
-    prompt = f"""..."""  # 和之前完全一样，因太长这里省略，你复制原来的prompt即可
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            response_format={"type": "json_object"}
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        return {"error": str(e)}
+    prompt = f"""
+你是一位资深的HR和职业规划师。请严格根据以下提供的【职位描述】和【候选人简历】进行客观分析。
+要求：你必须返回一个结构化的 JSON 对象，不要包含任何额外文字。
 
+【职位描述】
+{jd_text}
+
+【候选人简历】
+{resume_text}
+
+请严格按照以下JSON格式返回分析结果（确保输出是合法的JSON）：
+{{
+    "综合匹配度": 0-100的整数,
+    "匹配分析": {{
+        "硬技能匹配": ["技能1", "技能2"],
+        "软技能匹配": ["沟通能力", "团队协作"],
+        "经验匹配": ["相关经验描述"]
+    }},
+    "关键缺失": {{
+        "技能缺失": ["JD要求但简历未体现的技能"],
+        "经验不足": ["经验要求未满足的地方"],
+        "资格缺失": ["学历/证书等缺失项"]
+    }},
+    "简历优化建议": [
+        "具体建议1（要针对这份JD）",
+        "具体建议2",
+        "具体建议3"
+    ],
+    "面试准备方向": [
+        "这个岗位可能会问的技术问题方向",
+        "需要重点准备的项目经历"
+    ]
+}}
+"""
 # ---- 主界面 ----
 col1, col2 = st.columns([1, 1])
 with col1:
